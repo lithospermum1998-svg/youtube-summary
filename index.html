@@ -15,15 +15,17 @@ body {
 
 h1 {
   font-size: 22px;
+  margin-bottom: 16px;
 }
 
 textarea {
   width: 100%;
-  height: 80px;
+  height: 90px;
   padding: 12px;
   border-radius: 12px;
   border: 1px solid #ddd;
   font-size: 16px;
+  box-sizing: border-box;
 }
 
 button {
@@ -37,12 +39,18 @@ button {
   color: white;
 }
 
+button:disabled {
+  background: #a0a0a0;
+}
+
 #result {
   margin-top: 20px;
-  padding: 12px;
+  padding: 14px;
   background: white;
   border-radius: 12px;
   font-size: 15px;
+  line-height: 1.5;
+  min-height: 60px;
 }
 </style>
 </head>
@@ -51,16 +59,33 @@ button {
 
 <h1>YouTube要約</h1>
 
-<textarea placeholder="YouTubeのURLを貼る"></textarea>
+<textarea id="urlInput" placeholder="YouTubeのURLを貼る"></textarea>
 
-<button onclick="run()">要約する</button>
+<button id="runBtn" onclick="run()">要約する</button>
 
 <div id="result">ここに結果が表示されます</div>
 
 <script>
 function run() {
-  document.getElementById("result").innerText =
-    "（ここに要約結果が表示されます）";
+  const btn = document.getElementById("runBtn");
+  const result = document.getElementById("result");
+  const url = document.getElementById("urlInput").value;
+
+  // ボタンを無効化
+  btn.disabled = true;
+  btn.innerText = "要約中…";
+
+  // ローディング表示
+  result.innerText = "処理中です。少し待ってください…";
+
+  // 仮の処理（2秒後に結果を表示）
+  setTimeout(() => {
+    result.innerText =
+      "【サンプル要約】\n\nこの動画では、YouTube動画を文字起こしし、要約するアプリ風Webサービスの作り方について解説しています。まずは画面と操作感を作り、あとからAIやAPIをつなぐのが初心者にはおすすめです。";
+
+    btn.innerText = "要約する";
+    btn.disabled = false;
+  }, 2000);
 }
 </script>
 
