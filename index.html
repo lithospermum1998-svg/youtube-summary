@@ -51,6 +51,7 @@ button:disabled {
   font-size: 15px;
   line-height: 1.5;
   min-height: 60px;
+  white-space: pre-wrap;
 }
 </style>
 </head>
@@ -59,33 +60,64 @@ button:disabled {
 
 <h1>YouTube要約</h1>
 
-<textarea id="urlInput" placeholder="YouTubeのURLを貼る"></textarea>
+<textarea id="urlInput" placeholder="（今は未使用）YouTubeのURLを貼る"></textarea>
 
 <button id="runBtn" onclick="run()">要約する</button>
 
-<div id="result">ここに結果が表示されます</div>
+<div id="result">ここに要約結果が表示されます</div>
 
 <script>
-function run() {
+const API_KEY = "YOUR_API_KEY_HERE";
+
+async function run() {
   const btn = document.getElementById("runBtn");
   const result = document.getElementById("result");
-  const url = document.getElementById("urlInput").value;
 
-  // ボタンを無効化
   btn.disabled = true;
   btn.innerText = "要約中…";
+  result.innerText = "AIが要約しています…";
 
-  // ローディング表示
-  result.innerText = "処理中です。少し待ってください…";
+  // 今回は固定の文章を要約させる
+  const textToSummarize = `
+この動画では、YouTube動画を文字起こしして要約する
+アプリ風Webサービスの作り方について解説しています。
+初心者はまずUIを作り、次にAPIをつなぐことで
+挫折しにくくなります。
+`;
 
-  // 仮の処理（2秒後に結果を表示）
-  setTimeout(() => {
-    result.innerText =
-      "【サンプル要約】\n\nこの動画では、YouTube動画を文字起こしし、要約するアプリ風Webサービスの作り方について解説しています。まずは画面と操作感を作り、あとからAIやAPIをつなぐのが初心者にはおすすめです。";
+  try {
+    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer " + API_KEY
+      },
+      body: JSON.stringify({
+        model: "gpt-4.1-mini",
+        messages: [
+          {
+            role: "system",
+            content: "あなたは文章を簡潔に要約するアシスタントです。"
+          },
+          {
+            role: "user",
+            content: "次の文章を3行以内で要約してください。\n\n" + textToSummarize
+          }
+        ]
+      })
+    });
 
-    btn.innerText = "要約する";
-    btn.disabled = false;
-  }, 2000);
+    const data = await response.json();
+    const summary = data.choices[0].message.content;
+
+    result.innerText = summary;
+
+  } catch (error) {
+    result.innerText = "エラーが発生しました。APIキーを確認してください。";
+  }
+
+  btn.innerText = "要約する";
+  btn.disabled = false;
 }
 </script>
 
