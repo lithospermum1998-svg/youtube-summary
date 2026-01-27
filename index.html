@@ -1,125 +1,112 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>YouTube要約</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>YouTube Summary</title>
 
-<style>
-body {
-  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
-  background: #f2f2f7;
-  margin: 0;
-  padding: 20px;
-}
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif;
+      background: #f2f2f7;
+      margin: 0;
+      padding: 20px;
+    }
 
-h1 {
-  font-size: 22px;
-  margin-bottom: 16px;
-}
+    .card {
+      background: #ffffff;
+      border-radius: 16px;
+      padding: 20px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    }
 
-textarea {
-  width: 100%;
-  height: 90px;
-  padding: 12px;
-  border-radius: 12px;
-  border: 1px solid #ddd;
-  font-size: 16px;
-  box-sizing: border-box;
-}
+    h1 {
+      font-size: 22px;
+      margin-bottom: 12px;
+    }
 
-button {
-  width: 100%;
-  margin-top: 16px;
-  padding: 14px;
-  font-size: 17px;
-  border-radius: 14px;
-  border: none;
-  background: #007aff;
-  color: white;
-}
+    input {
+      width: 100%;
+      padding: 14px;
+      font-size: 16px;
+      border-radius: 12px;
+      border: 1px solid #ddd;
+      margin-bottom: 12px;
+    }
 
-button:disabled {
-  background: #a0a0a0;
-}
+    button {
+      width: 100%;
+      padding: 14px;
+      font-size: 16px;
+      border-radius: 12px;
+      border: none;
+      background: #007aff;
+      color: white;
+    }
 
-#result {
-  margin-top: 20px;
-  padding: 14px;
-  background: white;
-  border-radius: 12px;
-  font-size: 15px;
-  line-height: 1.5;
-  min-height: 60px;
-  white-space: pre-wrap;
-}
-</style>
+    button:active {
+      background: #005fcc;
+    }
+
+    .result {
+      margin-top: 20px;
+      font-size: 15px;
+      line-height: 1.6;
+      white-space: pre-wrap;
+    }
+
+    .loading {
+      color: #8e8e93;
+    }
+  </style>
 </head>
 
 <body>
+  <div class="card">
+    <h1>📺 YouTube要約</h1>
 
-<h1>YouTube要約</h1>
+    <input
+      id="urlInput"
+      type="text"
+      placeholder="YouTubeのURLを貼ってください"
+    />
 
-<textarea id="urlInput" placeholder="（今は未使用）YouTubeのURLを貼る"></textarea>
+    <button onclick="startSummary()">要約する</button>
 
-<button id="runBtn" onclick="run()">要約する</button>
+    <div id="result" class="result"></div>
+  </div>
 
-<div id="result">ここに要約結果が表示されます</div>
+  <script>
+    function startSummary() {
+      const result = document.getElementById("result");
+      const url = document.getElementById("urlInput").value;
 
-<script>
-const API_KEY = "YOUR_API_KEY_HERE";
+      if (!url) {
+        alert("YouTubeのURLを入力してください");
+        return;
+      }
 
-async function run() {
-  const btn = document.getElementById("runBtn");
-  const result = document.getElementById("result");
+      // ローディング表示
+      result.innerHTML = "<span class='loading'>文字起こし中…</span>";
 
-  btn.disabled = true;
-  btn.innerText = "要約中…";
-  result.innerText = "AIが要約しています…";
+      // 擬似的な待ち時間
+      setTimeout(() => {
+        result.innerHTML = "<span class='loading'>要約中…</span>";
+      }, 1500);
 
-  // 今回は固定の文章を要約させる
-  const textToSummarize = `
-この動画では、YouTube動画を文字起こしして要約する
-アプリ風Webサービスの作り方について解説しています。
-初心者はまずUIを作り、次にAPIをつなぐことで
-挫折しにくくなります。
-`;
+      // ダミー要約結果
+      setTimeout(() => {
+        result.textContent =
+`【要約】
+この動画では、YouTube動画を文字起こしし、
+その内容を短く分かりやすくまとめる方法について解説しています。
 
-  try {
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": "Bearer " + API_KEY
-      },
-      body: JSON.stringify({
-        model: "gpt-4.1-mini",
-        messages: [
-          {
-            role: "system",
-            content: "あなたは文章を簡潔に要約するアシスタントです。"
-          },
-          {
-            role: "user",
-            content: "次の文章を3行以内で要約してください。\n\n" + textToSummarize
-          }
-        ]
-      })
-    });
-
-    const data = await response.json();
-    const summary = data.choices[0].message.content;
-
-    result.innerText = summary;
-
-  } catch (error) {
-    result.innerText = "エラーが発生しました。APIキーを確認してください。";
-  }
-
-  btn.innerText = "要約する";
-  btn.disabled = false;
-}
-</script>
-
+主なポイント：
+・動画の内容を効率よく理解できる
+・長い動画でも要点だけ把握できる
+・学習や情報収集の時短に役立つ`;
+      }, 3000);
+    }
+  </script>
 </body>
 </html>
