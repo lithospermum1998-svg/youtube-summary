@@ -40,7 +40,8 @@ if st.button("要約を開始"):
             try:
                 # --- ステップC: AIモデルの呼び出し ---
                 # 先ほどのテストで最も安定していた「2.0-flash-lite」を使用します
-                model = genai.GenerativeModel("models/gemini-2.0-flash-lite")
+                model = genai.GenerativeModel("models/gemini-1.5-flash")
+
                 response = model.generate_content(prompt)
                 
                 # 結果表示
