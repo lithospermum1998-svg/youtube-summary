@@ -1,34 +1,42 @@
 import streamlit as st
 import google.generativeai as genai
+from youtube_transcript_api import YouTubeTranscriptApi
 
-st.title("🔍 接続テスト")
+st.set_page_config(page_title="最強YouTube要約", page_icon="🎬")
+st.title("🎬 YouTube要約（字幕なし対応）")
 
 # APIキー設定
 if "GEMINI_API_KEY" in st.secrets:
-    api_key = st.secrets["GEMINI_API_KEY"]
-    genai.configure(api_key=api_key)
-    st.write("✅ APIキーは設定されています")
-    
-    try:
-        st.write("📋 使えるモデルの一覧を取得中...")
-        # 使えるモデルを全部リストアップして表示する
-        models = genai.list_models()
-        found_models = []
-        for m in models:
-            if 'generateContent' in m.supported_generation_methods:
-                found_models.append(m.name)
-        
-        st.success("接続成功！以下のモデルが使えます：")
-        st.json(found_models)
-        
-        # 試しに一番標準的なモデルで挨拶してみる
-        st.write("---")
-        st.write("🤖 テスト会話を実行中...")
-        model = genai.GenerativeModel('gemini-1.5-flash') 
-        response = model.generate_content("こんにちは！聞こえてますか？")
-        st.write(f"AIからの返事: {response.text}")
-        
-    except Exception as e:
-        st.error(f"エラー発生: {e}")
+    genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
 else:
-    st.error("SecretsにAPIキーがありません")
+    st.error("SecretsでAPIキーを設定してください")
+
+url = st.text_input("動画URLを貼り付け:")
+
+if st.button("要約を実行"):
+    if url:
+        with st.status("解析中...", expanded=True) as status:
+            try:
+                # 1. まずは高速な「字幕取得」を試みる
+                st.write("字幕を探しています...")
+                video_id = url.split("v=")[1].split("&")[0] if "v=" in url else url.split("/")[-1]
+                transcript = YouTubeTranscriptApi.get_transcript(video_id, languages=['ja', 'en'])
+                text_data = " ".join([i['text'] for i in transcript])
+                prompt = f"以下の文字起こしを日本語で要約して:\n\n{text_data}"
+                st.write("字幕が見つかりました。要約中...")
+                
+            except:
+                # 2. 字幕がなければ、動画URLを直接AIに投げる
+                st.write("字幕がありません。動画を直接解析します（少し時間がかかります）...")
+                prompt = f"この動画の内容を、映像と音声から判断して日本語で要約して: {url}"
+
+            # ★あなたのリストにあった最新モデル「Gemini 2.0 Flash」を指定
+            model = genai.GenerativeModel("models/gemini-2.0-flash")
+            
+            response = model.generate_content(prompt)
+            
+            status.update(label="完了！", state="complete", expanded=False)
+            st.markdown("### 📝 要約結果")
+            st.write(response.text)
+    else:
+        st.error("URLを入力してください")
