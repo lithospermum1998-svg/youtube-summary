@@ -2,41 +2,39 @@ import streamlit as st
 import google.generativeai as genai
 from youtube_transcript_api import YouTubeTranscriptApi
 
-# 見た目の設定
-st.set_page_config(page_title="自分専用・要約くん", layout="centered")
-st.title("📺 YouTube要約アプリ")
+st.set_page_config(page_title="最強YouTube要約", page_icon="🎬")
+st.title("🎬 YouTube要約（字幕なし対応）")
 
-# 1. APIキーの設定（後でStreamlitの設定画面で入力します）
+# APIキー設定
 if "GEMINI_API_KEY" in st.secrets:
     genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
 else:
-    st.warning("APIキーが設定されていません。")
+    st.error("SecretsでAPIキーを設定してください")
 
-# 2. 入力エリア
-url = st.text_input("動画のURLをペーストしてください:")
+url = st.text_input("動画URLを貼り付け:")
 
-# 3. 実行ボタン
-if st.button("要約を開始"):
+if st.button("要約を実行"):
     if url:
-        try:
-            # 動画IDを抽出
-            video_id = url.split("v=")[1].split("&")[0] if "v=" in url else url.split("/")[-1]
-            
-            with st.spinner("文字起こしを取得中..."):
-                # 日本語と英語の字幕を探す
+        with st.status("解析中...", expanded=True) as status:
+            try:
+                # 1. まずは高速な「字幕取得」を試みる
+                st.write("字幕を探しています...")
+                video_id = url.split("v=")[1].split("&")[0] if "v=" in url else url.split("/")[-1]
                 transcript = YouTubeTranscriptApi.get_transcript(video_id, languages=['ja', 'en'])
-                full_text = " ".join([i['text'] for i in transcript])
+                text_data = " ".join([i['text'] for i in transcript])
+                prompt = f"以下の文字起こしを日本語で要約して:\n\n{text_data}"
+                st.write("字幕が見つかりました。要約中...")
+                
+            except:
+                # 2. 字幕がなければ、動画URLを直接AIに投げる（マルチモーダル）
+                st.write("字幕がありません。動画を直接解析します（少し時間がかかります）...")
+                prompt = f"この動画の内容を、映像と音声から判断して日本語で要約して: {url}"
+
+            model = genai.GenerativeModel("gemini-1.5-flash")
+            response = model.generate_content(prompt)
             
-            with st.spinner("AIが内容を要約中..."):
-                model = genai.GenerativeModel("gemini-1.5-flash")
-                # あなた専用のプロンプト
-                prompt = f"以下の動画の文字起こしを元に、内容を3つのポイントで日本語で要約してください:\n\n{full_text}"
-                response = model.generate_content(prompt)
-                
-                st.subheader("📝 要約結果")
-                st.write(response.text)
-                
-        except Exception as e:
-            st.error(f"エラーが発生しました。字幕がない動画かもしれません。")
+            status.update(label="完了！", state="complete", expanded=False)
+            st.markdown("### 📝 要約結果")
+            st.write(response.text)
     else:
-        st.info("URLを入力してください。")
+        st.error("URLを入力してください")
