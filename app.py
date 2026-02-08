@@ -31,7 +31,7 @@ if st.button("要約を実行"):
                 prompt = f"この動画の内容を、映像と音声から判断して日本語で要約して: {url}"
 
             # ★あなたのリストにあった最新モデル「Gemini 2.0 Flash」を指定
-            model = genai.GenerativeModel("gemini-1.5-flash-latest")
+            model = genai.GenerativeModel("models/gemini-2.0-flash-lite")
 
             
             response = model.generate_content(prompt)
