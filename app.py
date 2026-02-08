@@ -3,7 +3,7 @@ import google.generativeai as genai
 from youtube_transcript_api import YouTubeTranscriptApi
 
 st.set_page_config(page_title="最強YouTube要約", page_icon="🎬")
-st.title("🎬 YouTube要約（字幕なし対応）")
+st.title("YouTube要約")
 
 # APIキー設定
 if "GEMINI_API_KEY" in st.secrets:
@@ -30,7 +30,7 @@ if st.button("要約を実行"):
                 st.write("字幕がありません。動画を直接解析します（少し時間がかかります）...")
                 prompt = f"この動画の内容を、映像と音声から判断して日本語で要約して: {url}"
 
-            model = genai.GenerativeModel("gemini-1.5-flash")
+            model = genai.GenerativeModel("models/gemini-1.5-flash")
             response = model.generate_content(prompt)
             
             status.update(label="完了！", state="complete", expanded=False)
