@@ -1,17 +1,34 @@
 import streamlit as st
 import google.generativeai as genai
 
-st.title("テスト要約くん")
+st.title("🔍 接続テスト")
 
 # APIキー設定
 if "GEMINI_API_KEY" in st.secrets:
-    genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-
-url = st.text_input("YouTube URLを入力")
-
-if st.button("実行"):
-    # 修正版のモデル指定
-    model = genai.GenerativeModel("models/gemini-1.5-flash")
-    # 動画URLを直接解析する指示
-    response = model.generate_content(f"この動画の内容を日本語で要約して: {url}")
-    st.write(response.text)
+    api_key = st.secrets["GEMINI_API_KEY"]
+    genai.configure(api_key=api_key)
+    st.write("✅ APIキーは設定されています")
+    
+    try:
+        st.write("📋 使えるモデルの一覧を取得中...")
+        # 使えるモデルを全部リストアップして表示する
+        models = genai.list_models()
+        found_models = []
+        for m in models:
+            if 'generateContent' in m.supported_generation_methods:
+                found_models.append(m.name)
+        
+        st.success("接続成功！以下のモデルが使えます：")
+        st.json(found_models)
+        
+        # 試しに一番標準的なモデルで挨拶してみる
+        st.write("---")
+        st.write("🤖 テスト会話を実行中...")
+        model = genai.GenerativeModel('gemini-1.5-flash') 
+        response = model.generate_content("こんにちは！聞こえてますか？")
+        st.write(f"AIからの返事: {response.text}")
+        
+    except Exception as e:
+        st.error(f"エラー発生: {e}")
+else:
+    st.error("SecretsにAPIキーがありません")
