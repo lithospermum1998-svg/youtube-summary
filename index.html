@@ -50,8 +50,8 @@ textarea {
 <button onclick="summarize()">要約する</button>
 
 <div class="note">
-・字幕あり動画：高精度<br>
-・字幕なし動画：タイトル等を元にした推測要約
+・字幕あり：高精度<br>
+・字幕なし：タイトル等を元にした推測要約
 </div>
 
 <textarea id="result" placeholder="ここに要約が表示されます"></textarea>
@@ -79,7 +79,7 @@ async function summarize() {
   let prompt = "";
   let fallback = false;
 
-  // 字幕取得
+  // --- 字幕取得 ---
   try {
     const captionUrl =
       `https://video.google.com/timedtext?lang=ja&v=${videoId}&fmt=srv3`;
@@ -95,10 +95,10 @@ async function summarize() {
 
       prompt = `
 以下はYouTube動画の字幕です。
-日本語でわかりやすく要約してください。
+日本語で要点を整理して要約してください。
 
 【要約条件】
-・内容の流れ
+・何についての動画か
 ・重要ポイント
 ・結論
 
@@ -108,24 +108,25 @@ ${captions}
     }
   } catch {}
 
-  // 字幕なしフォールバック（←ここが重要）
+  // --- 字幕なしフォールバック（重要） ---
   if (!prompt) {
     fallback = true;
     prompt = `
 あなたはYouTube動画の内容を整理するアシスタントです。
 
 以下の動画について、
-「タイトルや一般的な動画構成」をもとに、
+「一般的なYouTube動画の構成」を前提に、
 想定される内容を日本語で要約してください。
 
-【注意】
-・実際の字幕はありません
-・推測であることを前提にしてください
+【前提情報】
+・動画は10〜15分程度
+・解説またはトーク形式
+・視聴者向けに要点を伝える内容
 
-【要約形式】
-・どんな動画か
-・話していそうな内容
-・結論（想定）
+【出力形式】
+・動画の概要
+・話していそうなポイント
+・まとめ（想定）
 
 YouTube URL:
 https://www.youtube.com/watch?v=${videoId}
@@ -134,7 +135,7 @@ https://www.youtube.com/watch?v=${videoId}
 
   try {
     const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -142,7 +143,11 @@ https://www.youtube.com/watch?v=${videoId}
           contents: [{
             role: "user",
             parts: [{ text: prompt }]
-          }]
+          }],
+          generationConfig: {
+            temperature: 0.6,
+            maxOutputTokens: 600
+          }
         })
       }
     );
@@ -152,7 +157,7 @@ https://www.youtube.com/watch?v=${videoId}
 
     result.value =
       (fallback ? "※字幕なし動画のため推測を含む要約です\n\n" : "")
-      + (text || "Geminiから応答がありませんでした");
+      + (text || "Geminiが内容を生成できませんでした");
 
   } catch (e) {
     result.value = "通信エラーが発生しました";
