@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>YouTube要約（Gemini）</title>
+
+<style>
+body {
+  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+  background: #f2f2f7;
+  padding: 16px;
+}
+h1 {
+  font-size: 20px;
+}
+input, textarea, button {
+  width: 100%;
+  margin-top: 12px;
+  padding: 12px;
+  font-size: 16px;
+}
+button {
+  background: #007aff;
+  color: white;
+  border: none;
+  border-radius: 10px;
+}
+textarea {
+  height: 220px;
+}
+</style>
+</head>
+
+<body>
+
+<h1>YouTube要約（Gemini）</h1>
+
+<input id="url" placeholder="YouTubeのURLを貼る">
+<input id="apikey" placeholder="Gemini APIキー（1回入れたらOK）">
+
+<button onclick="summarize()">要約する</button>
+
+<textarea id="result" placeholder="ここに要約が表示されます"></textarea>
+
+<script>
+async function summarize() {
+  const url = document.getElementById("url").value.trim();
+  const apiKey = document.getElementById("apikey").value.trim();
+  const videoId = url.match(/v=([^&]+)/)?.[1] || url.match(/youtu\.be\/([^?]+)/)?.[1];
+
+  if (!videoId || !apiKey) {
+    alert("URLまたはAPIキーが正しくありません");
+    return;
+  }
+
+  localStorage.setItem("geminiKey", apiKey);
+
+  // 日本語字幕を取得（公式）
+  const captionUrl =
+    `https://video.google.com/timedtext?lang=ja&v=${videoId}&fmt=srv3`;
+
+  const captionRes = await fetch(captionUrl);
+  const captionText = await captionRes.text();
+
+  if (!captionText) {
+    alert("字幕が取得できませんでした（字幕なし動画の可能性）");
+    return;
+  }
+
+  // XML → テキスト化
+  const parser = new DOMParser();
+  const xml = parser.parseFromString(captionText, "text/xml");
+  const texts = [...xml.getElementsByTagName("text")]
+    .map(t => t.textContent.replace(/\n/g, " "))
+    .join(" ");
+
+  // Geminiで要約
+  const res = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [{
+          parts: [{
+            text: `以下のYouTube字幕を日本語で簡潔に要約してください。\n\n${texts}`
+          }]
+        }]
+      })
+    }
+  );
+
+  const data = await res.json();
+  document.getElementById("result").value =
+    data.candidates?.[0]?.content?.parts?.[0]?.text || "要約に失敗しました";
+}
+
+// APIキー自動復元
+document.getElementById("apikey").value =
+  localStorage.getItem("geminiKey") || "";
+</script>
+
+</body>
+</html>
