@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>YouTube要約（Gemini）</title>
 
 <style>
@@ -13,7 +13,6 @@ body {
 }
 h1 {
   font-size: 20px;
-  margin-bottom: 12px;
 }
 input, textarea, button {
   width: 100%;
@@ -31,7 +30,7 @@ button {
   border: none;
 }
 textarea {
-  height: 240px;
+  height: 260px;
 }
 .note {
   font-size: 13px;
@@ -45,14 +44,14 @@ textarea {
 
 <h1>YouTube要約（Gemini）</h1>
 
-<input id="url" placeholder="YouTubeのURLを貼る" />
-<input id="apikey" placeholder="Gemini APIキー（保存されます）" />
+<input id="url" placeholder="YouTubeのURLを貼る">
+<input id="apikey" placeholder="Gemini APIキー">
 
 <button onclick="summarize()">要約する</button>
 
 <div class="note">
-・字幕あり動画は高精度<br>
-・字幕なし動画は内容推測による要約になります
+・字幕あり動画：高精度<br>
+・字幕なし動画：タイトル等を元にした推測要約
 </div>
 
 <textarea id="result" placeholder="ここに要約が表示されます"></textarea>
@@ -61,89 +60,106 @@ textarea {
 async function summarize() {
   const url = document.getElementById("url").value.trim();
   const apiKey = document.getElementById("apikey").value.trim();
-  const resultArea = document.getElementById("result");
+  const result = document.getElementById("result");
 
-  resultArea.value = "処理中…";
+  result.value = "処理中…";
 
   const videoId =
     url.match(/v=([^&]+)/)?.[1] ||
     url.match(/youtu\.be\/([^?]+)/)?.[1];
 
   if (!videoId || !apiKey) {
-    alert("URLまたはAPIキーが正しくありません");
-    resultArea.value = "";
+    alert("URLまたはAPIキーが不正です");
+    result.value = "";
     return;
   }
 
   localStorage.setItem("geminiKey", apiKey);
 
-  let sourceText = "";
-  let mode = "caption";
+  let prompt = "";
+  let fallback = false;
 
-  // --- 字幕取得を試す ---
+  // 字幕取得
   try {
     const captionUrl =
       `https://video.google.com/timedtext?lang=ja&v=${videoId}&fmt=srv3`;
     const res = await fetch(captionUrl);
     const xmlText = await res.text();
 
-    if (xmlText && xmlText.includes("<text")) {
+    if (xmlText.includes("<text")) {
       const parser = new DOMParser();
       const xml = parser.parseFromString(xmlText, "text/xml");
-      sourceText = [...xml.getElementsByTagName("text")]
+      const captions = [...xml.getElementsByTagName("text")]
         .map(t => t.textContent.replace(/\n/g, " "))
         .join(" ");
-    }
-  } catch (e) {}
 
-  // --- 字幕なしフォールバック ---
-  if (!sourceText) {
-    mode = "url";
-    sourceText = `
-以下のYouTube動画を、タイトル・概要・一般的な文脈をもとに日本語で要約してください。
+      prompt = `
+以下はYouTube動画の字幕です。
+日本語でわかりやすく要約してください。
 
-・どんな内容の動画か
-・重要なポイント
+【要約条件】
+・内容の流れ
+・重要ポイント
 ・結論
 
-URL:
+字幕:
+${captions}
+`;
+    }
+  } catch {}
+
+  // 字幕なしフォールバック（←ここが重要）
+  if (!prompt) {
+    fallback = true;
+    prompt = `
+あなたはYouTube動画の内容を整理するアシスタントです。
+
+以下の動画について、
+「タイトルや一般的な動画構成」をもとに、
+想定される内容を日本語で要約してください。
+
+【注意】
+・実際の字幕はありません
+・推測であることを前提にしてください
+
+【要約形式】
+・どんな動画か
+・話していそうな内容
+・結論（想定）
+
+YouTube URL:
 https://www.youtube.com/watch?v=${videoId}
 `;
   }
 
-  // --- Gemini要約 ---
   try {
-    const response = await fetch(
+    const res = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           contents: [{
-            parts: [{
-              text: sourceText
-            }]
+            role: "user",
+            parts: [{ text: prompt }]
           }]
         })
       }
     );
 
-    const data = await response.json();
-    const summary =
-      data.candidates?.[0]?.content?.parts?.[0]?.text;
+    const data = await res.json();
+    const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
 
-    resultArea.value =
-      (mode === "url"
-        ? "※字幕なし動画のため、推測を含む要約です\n\n"
-        : "")
-      + (summary || "要約に失敗しました");
+    result.value =
+      (fallback ? "※字幕なし動画のため推測を含む要約です\n\n" : "")
+      + (text || "Geminiから応答がありませんでした");
 
   } catch (e) {
-    resultArea.value = "エラーが発生しました";
+    result.value = "通信エラーが発生しました";
   }
 }
 
-// APIキー自動復元
+// APIキー復元
 document.getElementById("apikey").value =
   localStorage.getItem("geminiKey") || "";
 </script>
