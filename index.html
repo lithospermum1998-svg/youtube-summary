@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>YouTube要約（Gemini）</title>
 
 <style>
@@ -13,21 +13,30 @@ body {
 }
 h1 {
   font-size: 20px;
+  margin-bottom: 12px;
 }
 input, textarea, button {
   width: 100%;
   margin-top: 12px;
   padding: 12px;
   font-size: 16px;
+  border-radius: 10px;
+}
+input, textarea {
+  border: 1px solid #ccc;
 }
 button {
   background: #007aff;
   color: white;
   border: none;
-  border-radius: 10px;
 }
 textarea {
-  height: 220px;
+  height: 240px;
+}
+.note {
+  font-size: 13px;
+  color: #666;
+  margin-top: 8px;
 }
 </style>
 </head>
@@ -36,10 +45,15 @@ textarea {
 
 <h1>YouTube要約（Gemini）</h1>
 
-<input id="url" placeholder="YouTubeのURLを貼る">
-<input id="apikey" placeholder="Gemini APIキー（1回入れたらOK）">
+<input id="url" placeholder="YouTubeのURLを貼る" />
+<input id="apikey" placeholder="Gemini APIキー（保存されます）" />
 
 <button onclick="summarize()">要約する</button>
+
+<div class="note">
+・字幕あり動画は高精度<br>
+・字幕なし動画は内容推測による要約になります
+</div>
 
 <textarea id="result" placeholder="ここに要約が表示されます"></textarea>
 
@@ -47,53 +61,86 @@ textarea {
 async function summarize() {
   const url = document.getElementById("url").value.trim();
   const apiKey = document.getElementById("apikey").value.trim();
-  const videoId = url.match(/v=([^&]+)/)?.[1] || url.match(/youtu\.be\/([^?]+)/)?.[1];
+  const resultArea = document.getElementById("result");
+
+  resultArea.value = "処理中…";
+
+  const videoId =
+    url.match(/v=([^&]+)/)?.[1] ||
+    url.match(/youtu\.be\/([^?]+)/)?.[1];
 
   if (!videoId || !apiKey) {
     alert("URLまたはAPIキーが正しくありません");
+    resultArea.value = "";
     return;
   }
 
   localStorage.setItem("geminiKey", apiKey);
 
-  // 日本語字幕を取得（公式）
-  const captionUrl =
-    `https://video.google.com/timedtext?lang=ja&v=${videoId}&fmt=srv3`;
+  let sourceText = "";
+  let mode = "caption";
 
-  const captionRes = await fetch(captionUrl);
-  const captionText = await captionRes.text();
+  // --- 字幕取得を試す ---
+  try {
+    const captionUrl =
+      `https://video.google.com/timedtext?lang=ja&v=${videoId}&fmt=srv3`;
+    const res = await fetch(captionUrl);
+    const xmlText = await res.text();
 
-  if (!captionText) {
-    alert("字幕が取得できませんでした（字幕なし動画の可能性）");
-    return;
+    if (xmlText && xmlText.includes("<text")) {
+      const parser = new DOMParser();
+      const xml = parser.parseFromString(xmlText, "text/xml");
+      sourceText = [...xml.getElementsByTagName("text")]
+        .map(t => t.textContent.replace(/\n/g, " "))
+        .join(" ");
+    }
+  } catch (e) {}
+
+  // --- 字幕なしフォールバック ---
+  if (!sourceText) {
+    mode = "url";
+    sourceText = `
+以下のYouTube動画を、タイトル・概要・一般的な文脈をもとに日本語で要約してください。
+
+・どんな内容の動画か
+・重要なポイント
+・結論
+
+URL:
+https://www.youtube.com/watch?v=${videoId}
+`;
   }
 
-  // XML → テキスト化
-  const parser = new DOMParser();
-  const xml = parser.parseFromString(captionText, "text/xml");
-  const texts = [...xml.getElementsByTagName("text")]
-    .map(t => t.textContent.replace(/\n/g, " "))
-    .join(" ");
-
-  // Geminiで要約
-  const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [{
-          parts: [{
-            text: `以下のYouTube字幕を日本語で簡潔に要約してください。\n\n${texts}`
+  // --- Gemini要約 ---
+  try {
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{
+            parts: [{
+              text: sourceText
+            }]
           }]
-        }]
-      })
-    }
-  );
+        })
+      }
+    );
 
-  const data = await res.json();
-  document.getElementById("result").value =
-    data.candidates?.[0]?.content?.parts?.[0]?.text || "要約に失敗しました";
+    const data = await response.json();
+    const summary =
+      data.candidates?.[0]?.content?.parts?.[0]?.text;
+
+    resultArea.value =
+      (mode === "url"
+        ? "※字幕なし動画のため、推測を含む要約です\n\n"
+        : "")
+      + (summary || "要約に失敗しました");
+
+  } catch (e) {
+    resultArea.value = "エラーが発生しました";
+  }
 }
 
 // APIキー自動復元
